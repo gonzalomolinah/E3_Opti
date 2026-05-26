@@ -8,7 +8,7 @@ Distribucion optima de sangre desde un banco de sangre a hospitales
 Implementacion en Gurobi del modelo del PDF "Entrega_3_Opti".
 
 ESTRUCTURA DEL ARCHIVO:
-    cargar_datos(ruta)       -> lee Excel (o devuelve datos de prueba)
+    cargar_datos(ruta)       -> lee los CSVs con los parametros del modelo
     construir_modelo(datos)  -> define variables, objetivo y restricciones
     resolver(modelo, ...)    -> optimiza e imprime resultados
 
@@ -33,15 +33,11 @@ from gurobipy import GRB
 # 1. CARGA DE DATOS
 # =============================================================================
 
-def cargar_datos(ruta=None, escenario='basico', t_max=None):
+def cargar_datos(ruta='.', t_max=None, factor_donaciones=1.0, eta_override=None):
     """
-    Carga los parametros del modelo.
+    Lee los CSVs de la carpeta `ruta` y devuelve el dict de parametros del
+    modelo. Archivos esperados:
 
-    Si `ruta` es None, devuelve un set de datos sinteticos:
-        escenario='basico'  -> 2 hospitales, 2 tipos, T=7
-        escenario='estres'  -> 4 hospitales, 8 tipos, T=30
-
-    Si `ruta` apunta a la carpeta con los CSVs reales, lee los archivos:
         hospitales.csv            (hospital_id, tau_dias, capacidad_K_bolsas, ...)
         tipos_sangre.csv          (tipo_sangre, alpha, ...)
         compatibilidad.csv        (tipo_donante, tipo_receptor, compatible)
@@ -52,19 +48,15 @@ def cargar_datos(ruta=None, escenario='basico', t_max=None):
         demanda.csv               (hospital_id, tipo_sangre, t, demanda_bolsas)
         parametros_globales.csv   (parametro, valor) -> T, L, p, eta, M
 
-    `t_max`: opcional, trunca el horizonte de planificacion a 1..t_max para
-    correr pruebas rapidas (por defecto usa el T del CSV, 365 dias).
+    `t_max`: opcional, trunca el horizonte a 1..t_max para pruebas rapidas.
+    Si es None usa el T del CSV (365 dias por defecto).
+
+    `factor_donaciones`: multiplicador aplicado a todas las donaciones b[g,t]
+    (analisis de sensibilidad). 1.0 = datos originales del CSV; 0.95 = -5%.
+
+    `eta_override`: si es un numero, reemplaza el eta leido del CSV (analisis
+    de sensibilidad sobre la penalizacion por vencimiento). None = usar CSV.
     """
-    if ruta is None:
-        if escenario == 'estres':
-            return _datos_prueba_estres()
-        return _datos_prueba()
-
-    return _cargar_csvs(ruta, t_max=t_max)
-
-
-def _cargar_csvs(ruta, t_max=None):
-    """Lee los 9 CSVs de la carpeta `ruta` y devuelve el dict de datos."""
     import os
 
     def lee(nombre):
@@ -75,7 +67,7 @@ def _cargar_csvs(ruta, t_max=None):
     L = int(params['L'])
     T_csv = int(params['T'])
     p = float(params['p'])
-    eta = float(params['eta'])
+    eta = float(eta_override) if eta_override is not None else float(params['eta'])
     M = float(params['M'])
 
     if t_max is None:
@@ -129,8 +121,11 @@ def _cargar_csvs(ruta, t_max=None):
          for _, row in transp_df.iterrows() if int(row['t']) <= T_horizonte}
 
     # --- donaciones b[g, t] ---
+    # Se aplica `factor_donaciones` para analisis de sensibilidad.
+    # int() trunca despues de escalar (consistente con como se leen del CSV).
     donaciones_df = lee('donaciones.csv')
-    b = {(row['tipo_sangre'], int(row['t'])): int(row['donaciones_bolsas'])
+    b = {(row['tipo_sangre'], int(row['t'])):
+         int(int(row['donaciones_bolsas']) * factor_donaciones)
          for _, row in donaciones_df.iterrows()
          if int(row['t']) <= T_horizonte}
 
@@ -159,169 +154,6 @@ def _cargar_csvs(ruta, t_max=None):
     }
 
 
-def _datos_prueba():
-    """
-    Datos de prueba minimos:
-      - 2 hospitales
-      - 2 tipos de sangre (O, A) con compatibilidad O->O, O->A, A->A
-      - L = 5 dias de vida util
-      - T = 7 periodos (una semana)
-    Valores escogidos para que el modelo tenga una solucion no trivial
-    (demanda > 0, donaciones > 0, vencimiento posible).
-    """
-    H = ['H1', 'H2']
-    G = ['O', 'A']
-    L = 5
-    T_horizonte = 7
-
-    N = [0] + H                       # 0 = banco central
-    U = list(range(1, L + 1))         # niveles de vida util 1..L
-    T = list(range(1, T_horizonte + 1))
-
-    # Compatibilidad (g, g') en C: el tipo g PUEDE satisfacer demanda del tipo g'
-    # Subconjunto reducido para mantener el ejemplo simple:
-    #   O dona a O y a A,  A dona solo a A
-    C = [('O', 'O'), ('O', 'A'), ('A', 'A')]
-
-    # Demanda d_{h,g,t}
-    d = {(h, g, t): 5 for h in H for g in G for t in T}
-
-    # Donaciones b_{g,t}
-    b = {(g, t): 8 for g in G for t in T}
-
-    # Inventario inicial I^0_{n,g} (todo a vida util L per supuesto 10 del PDF)
-    I0 = {(0, 'O'): 20, (0, 'A'): 15,
-          ('H1', 'O'): 5, ('H1', 'A'): 5,
-          ('H2', 'O'): 5, ('H2', 'A'): 5}
-
-    # Capacidad maxima K_n
-    K = {0: 200, 'H1': 50, 'H2': 50}
-
-    # Tiempo de traslado tau_h
-    tau = {'H1': 1, 'H2': 2}
-
-    # Penalizaciones / ponderadores
-    p = 100                          # demanda insatisfecha
-    eta = 50                         # bolsa vencida
-    alpha = {'O': 1, 'A': 1}         # costo de oportunidad por usar tipo g
-    M = 10_000                       # constante grande
-
-    # Capacidad diaria de transporte del banco central Q_t
-    Q = {t: 50 for t in T}
-
-    return {
-        'H': H, 'G': G, 'N': N, 'U': U, 'T': T, 'L': L, 'C': C,
-        'd': d, 'b': b, 'I0': I0, 'K': K, 'tau': tau, 'alpha': alpha,
-        'p': p, 'eta': eta, 'M': M, 'Q': Q,
-    }
-
-
-def _datos_prueba_estres():
-    """
-    Datos de prueba realistas y estresados para ejercitar todas las
-    funcionalidades del modelo:
-
-      - 4 hospitales con distintos tau (cercanos y lejanos)
-      - 8 tipos de sangre con matriz de compatibilidad ABO/Rh real
-      - L = 8 dias (corto, para forzar vencimientos en horizonte de 30 dias)
-      - T = 30 dias
-
-    Eventos disenados para gatillar cada feature del modelo:
-      * Pico de demanda dias 12-15 (x3)        -> fuerza s > 0
-      * Bajon de donaciones dias 25-30 (x0.7)  -> presion al final
-      * Q_t reducida dias 14-15 (80 vs 150)    -> cuello de botella
-      * Inventario inicial alto en O+/A+       -> fuerza vencimientos w > 0
-      * alpha alto en tipos raros (O-, AB-)    -> penaliza mal uso
-    """
-    H = ['H1', 'H2', 'H3', 'H4']
-    G = ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+']
-    L = 8
-    T_horizonte = 30
-
-    N = [0] + H
-    U = list(range(1, L + 1))
-    T = list(range(1, T_horizonte + 1))
-
-    # Matriz de compatibilidad ABO/Rh real (g donante -> g' receptor)
-    compat = {
-        'O-':  ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'],  # universal donor
-        'O+':  ['O+', 'A+', 'B+', 'AB+'],
-        'A-':  ['A-', 'A+', 'AB-', 'AB+'],
-        'A+':  ['A+', 'AB+'],
-        'B-':  ['B-', 'B+', 'AB-', 'AB+'],
-        'B+':  ['B+', 'AB+'],
-        'AB-': ['AB-', 'AB+'],
-        'AB+': ['AB+'],
-    }
-    C = [(g, gpr) for g in G for gpr in compat[g]]
-
-    # Demanda base diaria (proporcional a distribucion poblacional chilena)
-    demanda_base = {
-        'H1': {'O+': 19, 'A+': 17, 'B+': 5, 'AB+': 2,
-               'O-': 3,  'A-': 3,  'B-': 1, 'AB-': 0},
-        'H2': {'O+': 11, 'A+': 10, 'B+': 3, 'AB+': 1,
-               'O-': 2,  'A-': 2,  'B-': 1, 'AB-': 0},
-        'H3': {'O+': 9,  'A+': 8,  'B+': 2, 'AB+': 1,
-               'O-': 2,  'A-': 1,  'B-': 1, 'AB-': 0},
-        'H4': {'O+': 6,  'A+': 5,  'B+': 1, 'AB+': 1,
-               'O-': 1,  'A-': 1,  'B-': 0, 'AB-': 0},
-    }
-    d = {}
-    for h in H:
-        for g in G:
-            for t in T:
-                base = demanda_base[h][g]
-                # Pico de demanda dias 12-15 (emergencia masiva, x3)
-                d[(h, g, t)] = base * 3 if 12 <= t <= 15 else base
-
-    # Donaciones base (bolsas/dia/tipo, proporcional a poblacion)
-    donaciones_base = {'O+': 45, 'A+': 40, 'B+': 11, 'AB+': 4,
-                       'O-': 8,  'A-': 7,  'B-': 2,  'AB-': 1}
-    b = {}
-    for g in G:
-        for t in T:
-            # Bajon de donaciones los ultimos 6 dias
-            factor = 0.7 if t >= 25 else 1.0
-            b[(g, t)] = int(donaciones_base[g] * factor)
-
-    # Inventario inicial: alto en tipos comunes (presion de uso) y muy alto
-    # en AB+ (nicho: solo puede satisfacer demanda AB+, sin escape -> fuerza
-    # vencimientos porque la demanda diaria de AB+ no alcanza a absorberlo
-    # antes de los L=8 dias de vida util)
-    I0 = {
-        (0, 'O+'): 180, (0, 'A+'): 160, (0, 'B+'): 40, (0, 'AB+'): 80,
-        (0, 'O-'): 30,  (0, 'A-'): 25,  (0, 'B-'): 8,  (0, 'AB-'): 5,
-    }
-    for h in H:
-        for g in G:
-            # ~medio dia de demanda como stock inicial en cada hospital
-            I0[(h, g)] = max(1, demanda_base[h][g] // 2)
-
-    # Capacidad de almacenamiento (apretadas vs flujo diario)
-    K = {0: 750, 'H1': 100, 'H2': 70, 'H3': 60, 'H4': 40}
-
-    # Tiempo de traslado banco -> hospital
-    tau = {'H1': 1, 'H2': 1, 'H3': 2, 'H4': 3}
-
-    # Costo de oportunidad por usar 1 bolsa de tipo g (mas alto = mas valioso)
-    alpha = {'O+': 1, 'A+': 1, 'B+': 1.5, 'AB+': 3,
-             'O-': 5, 'A-': 2, 'B-': 2.5, 'AB-': 4}
-
-    # Penalizaciones
-    p = 1000     # demanda insatisfecha: critica para pacientes
-    eta = 500    # vencimiento: desperdicio caro
-    M = 100_000
-
-    # Capacidad diaria de transporte del banco central
-    Q = {t: (80 if 14 <= t <= 15 else 150) for t in T}
-
-    return {
-        'H': H, 'G': G, 'N': N, 'U': U, 'T': T, 'L': L, 'C': C,
-        'd': d, 'b': b, 'I0': I0, 'K': K, 'tau': tau, 'alpha': alpha,
-        'p': p, 'eta': eta, 'M': M, 'Q': Q,
-    }
-
-
 # =============================================================================
 # 2. CONSTRUCCION DEL MODELO
 # =============================================================================
@@ -339,6 +171,14 @@ def construir_modelo(datos):
     # M se usa solo si se activa la restriccion 10 explicita (ver nota mas abajo).
 
     m = gp.Model('distribucion_sangre')
+
+    # -------------------------------------------------------------------------
+    # Parametros de Gurobi para acelerar la resolucion (LP grande, >5M vars)
+    # -------------------------------------------------------------------------
+    m.Params.Method = 2          # Barrier directo (no concurrente)
+    m.Params.Crossover = 0       # Skip crossover (no aporta al valor objetivo)
+    m.Params.BarConvTol = 1e-6   # Tolerancia barrier (default 1e-8, suficiente)
+    m.Params.Threads = 0         # 0 = usar todos los threads disponibles
 
     # -------------------------------------------------------------------------
     # Variables de decision (seccion 2.5 del PDF)
@@ -661,19 +501,28 @@ def resolver(modelo, variables, datos, verbose=False):
 
 if __name__ == '__main__':
     # ----- Configuracion de la corrida -----
-    # Opciones:
-    #   ruta='.' (o ruta a la carpeta con los CSVs) -> usa datos reales
-    #   ruta=None + escenario='basico' / 'estres'   -> datos sinteticos
-    # t_max trunca el horizonte; util para probar antes de correr T=365 completo.
+    # RUTA_DATOS: carpeta con los CSVs (usar '.' si estan en la misma carpeta)
+    # T_MAX: None = horizonte completo del CSV; entero para test rapido
+    # FACTOR_DONACIONES: multiplicador sobre b[g,t] (1.0 = datos del CSV)
+    # ETA_OVERRIDE: override de la penalizacion por vencimiento.
+    #   None = usar el del CSV (80). Sensibilidad actual: 200.
     # ----------------------------------------
-    RUTA_DATOS = '.'        # carpeta con los CSVs
-    T_MAX = None          # None = 365 dias completo; usar 30 para test rapido
+    RUTA_DATOS = '.'
+    T_MAX = None
+    FACTOR_DONACIONES = 1.0
+    ETA_OVERRIDE = 200
 
-    print(f"\n>>> Datos reales desde '{RUTA_DATOS}', t_max = {T_MAX}\n")
-    datos = cargar_datos(ruta=RUTA_DATOS, t_max=T_MAX)
+    print(f"\n>>> Datos desde '{RUTA_DATOS}', t_max = {T_MAX}, "
+          f"factor_donaciones = {FACTOR_DONACIONES}, "
+          f"eta_override = {ETA_OVERRIDE}\n")
+    datos = cargar_datos(ruta=RUTA_DATOS, t_max=T_MAX,
+                         factor_donaciones=FACTOR_DONACIONES,
+                         eta_override=ETA_OVERRIDE)
     print(f"  H = {len(datos['H'])} hospitales | G = {len(datos['G'])} tipos")
     print(f"  T = {len(datos['T'])} dias        | L = {datos['L']} vida util")
-    print(f"  |C| = {len(datos['C'])} pares compatibles\n")
+    print(f"  |C| = {len(datos['C'])} pares compatibles")
+    print(f"  Donaciones totales: {sum(datos['b'].values()):,} bolsas")
+    print(f"  eta = {datos['eta']}, p = {datos['p']}\n")
 
     modelo, variables = construir_modelo(datos)
     resolver(modelo, variables, datos, verbose=False)

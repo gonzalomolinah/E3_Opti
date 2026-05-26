@@ -1,0 +1,208 @@
+\documentclass[11pt, a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{colortbl}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{mdframed}
+
+\geometry{top=2.2cm, bottom=2.2cm, left=2.3cm, right=2.3cm}
+
+\definecolor{ucblue}{HTML}{1a237e}
+\definecolor{ucbluelight}{HTML}{3949ab}
+\definecolor{rowgray}{HTML}{e8eaf6}
+\definecolor{codebg}{HTML}{f3f4f6}
+\definecolor{accentred}{HTML}{c62828}
+\definecolor{accentgreen}{HTML}{2e7d32}
+\definecolor{accentamber}{HTML}{ef6c00}
+
+\titleformat{\section}{\large\bfseries\color{ucblue}}{}{0em}{}[\vspace{-4pt}\rule{\linewidth}{0.8pt}]
+\titlespacing{\section}{0pt}{12pt}{5pt}
+
+\titleformat{\subsection}{\normalsize\bfseries\color{ucbluelight}}{}{0em}{}
+\titlespacing{\subsection}{0pt}{8pt}{3pt}
+
+\newmdenv[
+  linecolor=ucbluelight, linewidth=1.5pt,
+  topline=false, rightline=false, bottomline=false,
+  leftmargin=8pt, innerleftmargin=10pt,
+  innertopmargin=5pt, innerbottommargin=5pt,
+  backgroundcolor=rowgray
+]{nota}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small\color{ucblue}\textbf{ICS1113} Optimización · Informe 3}
+\rhead{\small\color{ucblue}Análisis de sensibilidad · Grupo 11}
+\cfoot{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\begin{center}
+  {\LARGE\bfseries\color{ucblue} Análisis de sensibilidad del modelo}\\[3pt]
+  {\normalsize Comparación de escenarios sobre donaciones y penalización por vencimiento}
+\end{center}
+\vspace{-2pt}
+{\color{ucblue}\rule{\linewidth}{1.5pt}}
+
+\section{Resumen ejecutivo}
+
+Se evaluaron dos modificaciones sobre los parámetros del modelo base para entender qué tan sensible es el resultado a la calibración y a la oferta de donaciones. Las tres corridas mantienen idénticos: hospitales, demanda, inventario inicial, capacidades, $p = 1000$, $L = 42$, $T = 365$.
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\rowcolor{rowgray}\textbf{Indicador} & \textbf{Base} & \textbf{$-$5\% donaciones} & \textbf{$\eta = 200$}\\
+\rowcolor{rowgray} & $(f{=}1, \eta{=}80)$ & $(f{=}0{,}95, \eta{=}80)$ & $(f{=}1, \eta{=}200)$\\
+\midrule
+Valor objetivo & 518.181 & 880.855 & 1.020.742 \\
+Demanda satisfecha & \textbf{\color{accentgreen}100,0\%} & 99,0\% & \textbf{\color{accentgreen}100,0\%} \\
+Demanda insatisfecha & 0 & \textbf{\color{accentred}542} & 0 \\
+\textbf{Vencidas total} & \textbf{4.577} & \textbf{\color{accentgreen}1.637} & 3.647 \\
+\quad Vencidas en banco & 1.591 & 54 & 371 \\
+\quad Vencidas en hospitales & 2.986 & 1.583 & 3.276 \\
+Tasa desperdicio (\% oferta) & 7,8\% & \textbf{\color{accentgreen}3,1\%} & 6,3\% \\
+Tiempo de cómputo & 35 min & 19 min & 15 min \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Configuración de los escenarios}
+
+\textbf{Escenario base.} Datos del CSV sin modificación: 57.818 donaciones anuales, $\eta = 80$.
+
+\textbf{Escenario A ($-$5\% donaciones).} Se aplicó \texttt{factor\_donaciones = 0.95} a todas las series $b_{g,t}$, simulando una reducción uniforme del 5\% en la planificación de donaciones. Total: 53.389 bolsas (\(-\)4.429).
+
+\textbf{Escenario B ($\eta = 200$).} Se reemplazó la penalización por vencimiento del CSV ($\eta = 80$) por $\eta = 200$. El ratio $\eta/p$ pasa de 8\% a 20\%, dándole más peso a evitar desperdicio.
+
+\section{Desglose del objetivo por término}
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+\rowcolor{rowgray}\textbf{Término} & \textbf{Base} & \textbf{$-$5\% don.} & \textbf{$\eta=200$}\\
+\midrule
+1. Calidad de uso $\sum[(L-u)+\tau_h+\alpha_g]\,y$ & 152.021 & 207.895 & 291.295 \\
+2. Demanda insatisfecha $p\sum s$ & 0 & 542.000 & 0 \\
+3. Vencimientos $\eta\sum w$ & 366.160 & 130.960 & 729.447 \\
+\midrule
+\textbf{Total} & \textbf{518.181} & \textbf{880.855} & \textbf{1.020.742} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+El término 1 sube en ambos escenarios respecto a la base: el modelo se ve forzado a usar bolsas más viejas (\(L-u\) mayor) para evitar vencimientos. En el escenario B este efecto es más fuerte porque la presión por no desperdiciar es mayor.
+
+\section{Hallazgos por escenario}
+
+\subsection{Escenario A: $-$5\% en donaciones}
+
+\textbf{Vencimientos bajan 64\%} (de 4.577 a 1.637), pero \textbf{aparece insatisfacción del 1,0\%} (542 bolsas).
+
+La insatisfacción se concentra casi exclusivamente en tipos Rh negativos:
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+\rowcolor{rowgray}\textbf{Tipo} & \textbf{Insatisf.} & \textbf{Demanda} & \textbf{\%}\\
+\midrule
+O$-$ & 415 & 1.778 & 23,3\% \\
+A$-$ & 81 & 755 & 10,7\% \\
+B$-$ & 45 & 259 & 17,4\% \\
+AB$-$ & 1 & 62 & 1,6\% \\
+\midrule
+Rh$+$ (todos) & 0 & 49.805 & 0\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Causa estructural:} los Rh$-$ ya tenían donaciones diarias muy bajas. Al multiplicar por 0,95 y truncar a entero, se pierde una bolsa por día por tipo:
+$$8 \times 0{,}95 = 7{,}6 \to 7 \quad (\text{O$-$ pierde 365 bolsas al año})$$
+
+\subsection{Escenario B: $\eta = 200$}
+
+\textbf{Vencimientos bajan 20\%} (de 4.577 a 3.647) \textbf{sin sacrificar cobertura}. El cambio más interesante está en \emph{dónde} ocurren los vencimientos:
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+\rowcolor{rowgray}\textbf{Ubicación} & \textbf{Base} & \textbf{$\eta=200$}\\
+\midrule
+Vencidas en banco & 1.591 & \textbf{\color{accentgreen}371\ ($-$77\%)} \\
+Vencidas en hospitales & 2.986 & 3.276 ($+$10\%) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Con mayor $\eta$, el modelo \textbf{redistribuye agresivamente bolsas del banco a hospitales} para que tengan más oportunidades de uso antes de vencer. El banco deja de ser cementerio de bolsas, pero los hospitales absorben un poco más del desperdicio residual.
+
+\textbf{Por tipo, la mejora se concentra en los más restringidos:}
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+\rowcolor{rowgray}\textbf{Tipo} & \textbf{Vencidas base} & \textbf{Vencidas $\eta=200$} & \textbf{Reducción}\\
+\midrule
+AB$+$ (1 receptor compatible) & 617 & 386 & \textbf{$-$37\%} \\
+B$+$ (2 receptores) & 1.503 & 1.133 & $-$25\% \\
+A$+$ (2 receptores) & 1.026 & 808 & $-$21\% \\
+O$+$ (4 receptores) & 1.172 & 1.082 & $-$8\% \\
+Rh$-$ (varios receptores) & 259 & 239 & $-$8\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A menor flexibilidad de compatibilidad, mayor el rescate al subir $\eta$. Tiene sentido: las bolsas \emph{stuck} (AB$+$) son las que más se beneficiaban del rescate forzado por la penalización.
+
+\section{Conclusiones}
+
+\begin{nota}
+La principal hipótesis previa --- que los vencimientos eran 100\% estructurales por sobre-oferta --- resultó \textbf{parcialmente equivocada}. La calibración del CSV ($\eta = 80$) infrapondera el costo del desperdicio.
+\end{nota}
+
+\begin{enumerate}[leftmargin=*, itemsep=4pt]
+  \item \textbf{Reducir donaciones uniformemente NO es buena política.} Aunque baja vencimientos drásticamente, introduce escasez en los tipos Rh$-$ que ya estaban al límite. El recorte debería ser \emph{selectivo} (solo Rh$+$).
+  \item \textbf{La calibración del CSV ($\eta = 80$) es demasiado permisiva.} Subirla a 200 reduce vencimientos 20\% sin costo de cobertura. Se sugiere calibrar formalmente el ratio $\eta/p$ en consulta con expertos clínicos del banco.
+  \item \textbf{Hay vencimientos efectivamente estructurales:} aún con $\eta = 200$ vencen 3.647 bolsas, principalmente por el supuesto 10 (inventario inicial todo a $u=L$) que concentra 760 vencimientos en el día 43, y por sobre-oferta crónica en tipos Rh$+$.
+  \item \textbf{El pico del día 43 es invariante} a ambos cambios. Sigue venciendo $\sim$760 bolsas. Solo se eliminaría reformulando el supuesto 10.
+\end{enumerate}
+
+\section{Próximos análisis sugeridos}
+
+Los siguientes escenarios no se corrieron aún y aportarían argumentos adicionales:
+
+\begin{center}
+\begin{tabular}{p{4.8cm}p{5.5cm}p{4.5cm}}
+\toprule
+\rowcolor{rowgray}\textbf{Escenario} & \textbf{Predicción} & \textbf{Valor para informe}\\
+\midrule
+\textbf{Recorte selectivo $-$10\% solo en Rh$+$} & Vencidas $\sim$1.800--2.200, cobertura 100\% & \textbf{Alto:} recomendación realista \\
+\midrule
+Combinado $f{=}0{,}95$ + $\eta{=}200$ & Vencidas $\sim$1.300--1.500, insatisf. $\sim$542 & Medio: confirma aditividad \\
+\midrule
+Inventario inicial escalonado en edades 1..L & Elimina pico día 43, vencidas $\sim$3.500--4.000 & Medio: defiende supuesto 10 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Recomendación:} priorizar el \emph{recorte selectivo Rh$+$}. Es la única política que combina las ventajas de A (menos desperdicio) y B (100\% cobertura) sin sus contras.
+
+\vfill
+{\color{ucblue}\rule{\linewidth}{0.6pt}}
+\begin{center}
+  \small Tres corridas Gurobi · misma instancia (8 hospitales, 8 tipos, $T=365$, $L=42$)\\
+  \small Modelo PDF v2 (R1..R15) · óptimo global en cada escenario
+\end{center}
+
+\end{document}
