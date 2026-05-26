@@ -1,0 +1,190 @@
+\documentclass[11pt, a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{colortbl}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{mdframed}
+
+\geometry{top=2.2cm, bottom=2.2cm, left=2.5cm, right=2.5cm}
+
+\definecolor{ucblue}{HTML}{1a237e}
+\definecolor{ucbluelight}{HTML}{3949ab}
+\definecolor{rowgray}{HTML}{e8eaf6}
+\definecolor{codebg}{HTML}{f3f4f6}
+\definecolor{accentred}{HTML}{c62828}
+\definecolor{accentgreen}{HTML}{2e7d32}
+
+\titleformat{\section}{\large\bfseries\color{ucblue}}{}{0em}{}[\vspace{-4pt}\rule{\linewidth}{0.8pt}]
+\titlespacing{\section}{0pt}{12pt}{5pt}
+
+\titleformat{\subsection}{\normalsize\bfseries\color{ucbluelight}}{}{0em}{}
+\titlespacing{\subsection}{0pt}{8pt}{3pt}
+
+\newmdenv[
+  linecolor=ucbluelight, linewidth=1.5pt,
+  topline=false, rightline=false, bottomline=false,
+  leftmargin=8pt, innerleftmargin=10pt,
+  innertopmargin=5pt, innerbottommargin=5pt,
+  backgroundcolor=rowgray
+]{nota}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small\color{ucblue}\textbf{ICS1113} Optimización · Informe 3}
+\rhead{\small\color{ucblue}Grupo 11}
+\cfoot{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\begin{center}
+  {\LARGE\bfseries\color{ucblue} Resultados del modelo con datos reales}\\[3pt]
+  {\normalsize Horizonte $T = 365$ días \quad Vida útil $L = 42$ días}
+\end{center}
+\vspace{-2pt}
+{\color{ucblue}\rule{\linewidth}{1.5pt}}
+
+\section{Resumen ejecutivo}
+
+El modelo resolvió a óptimo en \textbf{35 minutos} (5{,}4M variables, 1{,}2M restricciones). La red satisface el 100\% de la demanda anual; el desperdicio resultante (7{,}8\%) se debe a sobre-oferta estructural de donaciones, no a fallas del modelo.
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+\rowcolor{rowgray}\textbf{Indicador} & \textbf{Valor}\\
+\midrule
+Valor objetivo & 518.180,81 \\
+Demanda total año & 52.659 bolsas \\
+Demanda satisfecha & \textbf{\color{accentgreen} 52.659 (100\%)} \\
+Demanda insatisfecha & 0 (0\%) \\
+Bolsas vencidas & \textbf{\color{accentred} 4.577 (7,8\% de la oferta)} \\
+Tiempo de resolución & 35 min \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Desglose del objetivo}
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+\rowcolor{rowgray}\textbf{Término} & \textbf{Valor} & \textbf{\% del total}\\
+\midrule
+1. Calidad de uso $\sum[(L-u)+\tau_h+\alpha_g]\,y$ & 152.020,81 & 29,3\% \\
+2. Demanda insatisfecha $p\sum s$ & 0,00 & 0,0\% \\
+3. Vencimientos $\eta \sum w$ & \textbf{366.160,00} & \textbf{70,7\%} \\
+\midrule
+\textbf{Total} & \textbf{518.180,81} & 100\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+El término dominante es \textbf{vencimientos}, no insatisfacción. El sistema no tiene problema de cobertura sino de gestión del excedente.
+
+\section{Balance oferta--demanda}
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+\rowcolor{rowgray}\textbf{Concepto} & \textbf{Bolsas}\\
+\midrule
+Oferta total & 58.564 \\
+\quad Donaciones año & 57.818 \\
+\quad Inventario inicial & 746 \\
+Demanda total año & 52.659 \\
+\midrule
+\textbf{Exceso de oferta} & \textbf{5.905 \,(10,1\%)} \\
+\quad Vencidas en el modelo & 4.577 \,(77,5\% del exceso) \\
+\quad Remanente al día 365 & 1.328 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Las donaciones programadas exceden la demanda en $\sim$10\% anual. El modelo no puede crear demanda: el excedente o se queda como inventario final o vence.
+
+\section{Hallazgo crítico: pico de vencimientos al día 43}
+
+\begin{nota}
+\textbf{Día 43:} vencen 761 bolsas (17\% del total anual en un único día).
+\end{nota}
+
+\textbf{Causa.} El inventario inicial (746 bolsas) entra todo a $u = L = 42$ el día 1 por el supuesto 10 del PDF. Cumple su ciclo de envejecimiento y vence el día $L+1 = 43$.
+
+\textbf{Por qué no se usa antes.} Las donaciones diarias bastan para cubrir la demanda diaria; el modelo prefiere usar bolsas frescas (término~1) y el inventario inicial envejece sin rotarse.
+
+\textbf{Implicancia.} En la realidad, el inventario inicial de un banco está escalonado en distintas edades, no concentrado a $u=L$. \textit{Conviene mencionar el supuesto 10 como limitación en el informe.}
+
+\section{Patrón temporal y por tipo}
+
+Después del día 43, los vencimientos aparecen en \textbf{olas de 5--7 días} durante todo el año (días 50, 57, 78, 87, 106, 113, 134, 155, \ldots con 50--80 bolsas cada uno). Refleja el ciclo de envejecimiento del exceso crónico.
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+\rowcolor{rowgray}\textbf{Tipo} & \textbf{Vencidas} & \textbf{Demanda año} & \textbf{Vencidas / Demanda}\\
+\midrule
+B+ & 1.503 & 4.445 & 33,8\% \\
+AB+ & 617 & 972 & 63,5\% \\
+O+ & 1.172 & 30.529 & 3,8\% \\
+A+ & 1.026 & 13.859 & 7,4\% \\
+O-- & 98 & 1.778 & 5,5\% \\
+A-- & 85 & 755 & 11,3\% \\
+B-- & 42 & 259 & 16,2\% \\
+AB-- & 34 & 62 & 54,8\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{B+ y AB+} son los más castigados. AB+ tiene compatibilidad mínima (solo satisface a AB+, único receptor). B+ tiene relación donaciones/demanda muy desfavorable.
+
+\section{Calidad del uso}
+
+\begin{itemize}[leftmargin=*, itemsep=2pt]
+  \item Costo medio por bolsa usada: $152.020,81 / 52.659 = \mathbf{2{,}89}$
+  \item Composición típica: $(L-u)\approx 0$ + $\tau \approx 0{,}03$ + $\alpha \approx 2{,}8$
+\end{itemize}
+
+El modelo usa bolsas \textbf{muy frescas en promedio}: casi todas se utilizan el mismo día o al día siguiente de la donación.
+
+\section{Validación contra literatura}
+
+La tasa de desperdicio del \textbf{7,8\%} es coherente con la cita de Alsughayyir y cols. (2026, PLOS ONE) que reporta hasta \textbf{14,7\%} en hospitales sin optimización. El modelo reduce el desperdicio prácticamente a la mitad respecto a ese benchmark.
+
+\section{Conclusiones para el informe}
+
+\begin{enumerate}[leftmargin=*, itemsep=3pt]
+  \item El modelo funciona correctamente: cubre el 100\% de la demanda sin holguras artificiales.
+  \item El cuello de botella no es oferta sino \textbf{gestión del excedente} (donaciones $\sim$10\% mayores a la demanda).
+  \item El supuesto 10 (inventario inicial todo a $u=L$) genera un pico artificial de vencimientos al día 43. Mencionar como limitación.
+  \item La tasa de 7,8\% de desperdicio \textbf{mejora significativamente el 14,7\% de literatura}, validando el aporte del modelo.
+  \item Recomendación al banco real: revisar la planificación de donaciones; un ajuste de $-5\%$ podría eliminar la mayoría de vencimientos sin comprometer cobertura.
+\end{enumerate}
+
+\section{Análisis de sensibilidad sugerido}
+
+Para reforzar el informe, podrían correrse los siguientes escenarios:
+
+\begin{itemize}[leftmargin=*, itemsep=2pt]
+  \item \textbf{Donaciones $\times\,0{,}95$:} ¿se eliminan vencimientos manteniendo cobertura?
+  \item \textbf{$\eta = 200$:} ¿cambia algo o el modelo ya está en su mínimo posible?
+  \item \textbf{Inventario inicial escalonado en edades $1..L$:} ¿desaparece el pico del día 43?
+\end{itemize}
+
+\vfill
+{\color{ucblue}\rule{\linewidth}{0.6pt}}
+\begin{center}
+  \small Modelo resuelto con Gurobi 10.0.3 · 1.168.458 restricciones, 5.445.800 variables · óptimo global alcanzado
+\end{center}
+
+\end{document}

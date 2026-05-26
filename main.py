@@ -33,45 +33,130 @@ from gurobipy import GRB
 # 1. CARGA DE DATOS
 # =============================================================================
 
-def cargar_datos(ruta=None, escenario='basico'):
+def cargar_datos(ruta=None, escenario='basico', t_max=None):
     """
     Carga los parametros del modelo.
 
-    Si `ruta` es None, devuelve un set de datos de prueba.
-        escenario='basico'  -> 2 hospitales, 2 tipos, T=7  (verificacion rapida)
-        escenario='estres'  -> 4 hospitales, 8 tipos, T=30 (realista, fuerza
-                               demanda insatisfecha, vencimientos y todos los
-                               cuellos de botella)
+    Si `ruta` es None, devuelve un set de datos sinteticos:
+        escenario='basico'  -> 2 hospitales, 2 tipos, T=7
+        escenario='estres'  -> 4 hospitales, 8 tipos, T=30
 
-    Cuando lleguen los datos reales solo hay que implementar la lectura
-    desde Excel; la firma de los datos que se entregan a construir_modelo
-    debe mantenerse igual.
+    Si `ruta` apunta a la carpeta con los CSVs reales, lee los archivos:
+        hospitales.csv            (hospital_id, tau_dias, capacidad_K_bolsas, ...)
+        tipos_sangre.csv          (tipo_sangre, alpha, ...)
+        compatibilidad.csv        (tipo_donante, tipo_receptor, compatible)
+        inventario_inicial.csv    (nodo_id, tipo_sangre, inventario_inicial_bolsas, ...)
+        capacidad_nodos.csv       (nodo_id, capacidad_K_bolsas)
+        capacidad_transporte.csv  (t, Q_t)
+        donaciones.csv            (tipo_sangre, t, donaciones_bolsas)
+        demanda.csv               (hospital_id, tipo_sangre, t, demanda_bolsas)
+        parametros_globales.csv   (parametro, valor) -> T, L, p, eta, M
 
-    Formato esperado del Excel (hojas):
-        hospitales         : columna 'h'
-        tipos_sangre       : columna 'g'
-        periodos           : columna 't' (1..T)
-        vida_util          : columna 'u' (1..L)
-        demanda            : h, g, t, valor
-        donaciones         : g, t, valor
-        inventario_inicial : n, g, valor       (n=0 para banco central)
-        capacidad_nodo     : n, valor
-        traslado           : h, valor (tau_h)
-        compatibilidad     : g_donante, g_receptor   (pares (g,g') en C)
-        alpha              : g, valor
-        capacidad_transp   : t, valor (Q_t)
-        escalares          : nombre ('L','p','eta','M'), valor
+    `t_max`: opcional, trunca el horizonte de planificacion a 1..t_max para
+    correr pruebas rapidas (por defecto usa el T del CSV, 365 dias).
     """
     if ruta is None:
         if escenario == 'estres':
             return _datos_prueba_estres()
         return _datos_prueba()
 
-    # TODO: implementar cuando lleguen los datos reales.
-    # Aqui solo se reemplaza la lectura, el resto del codigo NO cambia.
-    raise NotImplementedError(
-        "Carga desde Excel pendiente. Usar ruta=None mientras tanto."
-    )
+    return _cargar_csvs(ruta, t_max=t_max)
+
+
+def _cargar_csvs(ruta, t_max=None):
+    """Lee los 9 CSVs de la carpeta `ruta` y devuelve el dict de datos."""
+    import os
+
+    def lee(nombre):
+        return pd.read_csv(os.path.join(ruta, nombre))
+
+    # --- escalares ---
+    params = lee('parametros_globales.csv').set_index('parametro')['valor']
+    L = int(params['L'])
+    T_csv = int(params['T'])
+    p = float(params['p'])
+    eta = float(params['eta'])
+    M = float(params['M'])
+
+    if t_max is None:
+        T_horizonte = T_csv
+    else:
+        T_horizonte = min(int(t_max), T_csv)
+
+    # --- conjuntos ---
+    hospitales_df = lee('hospitales.csv')
+    H = hospitales_df['hospital_id'].tolist()
+
+    tipos_df = lee('tipos_sangre.csv')
+    G = tipos_df['tipo_sangre'].tolist()
+
+    N = [0] + H
+    U = list(range(1, L + 1))
+    T = list(range(1, T_horizonte + 1))
+
+    # --- compatibilidad ---
+    compat_df = lee('compatibilidad.csv')
+    C = [(row['tipo_donante'], row['tipo_receptor'])
+         for _, row in compat_df.iterrows() if int(row['compatible']) == 1]
+
+    # --- parametros por hospital ---
+    # tau viene en dias fraccionarios (~0.02 a 0.05 -> minutos). Como el
+    # periodo del modelo es 1 dia, R8 con tau_h < 1 NO bloquea ningun envio:
+    # la restriccion x = 0 si u <= tau_h nunca se activa porque u es entero
+    # >= 1 > tau_h. Esto es coherente: el traslado dura < 1 dia, no envejece
+    # la bolsa. Si el grupo prefiere bloquear u=1, redondear hacia arriba.
+    tau = {row['hospital_id']: float(row['tau_dias'])
+           for _, row in hospitales_df.iterrows()}
+
+    # --- capacidades por nodo ---
+    cap_df = lee('capacidad_nodos.csv')
+    K = {}
+    for _, row in cap_df.iterrows():
+        nodo = row['nodo_id']
+        # El CSV trae 0 como string "0" para el banco central
+        if nodo == '0' or nodo == 0:
+            K[0] = int(row['capacidad_K_bolsas'])
+        else:
+            K[nodo] = int(row['capacidad_K_bolsas'])
+
+    # --- alpha por tipo ---
+    alpha = {row['tipo_sangre']: float(row['alpha'])
+             for _, row in tipos_df.iterrows()}
+
+    # --- capacidad de transporte por dia ---
+    transp_df = lee('capacidad_transporte.csv')
+    Q = {int(row['t']): int(row['Q_t'])
+         for _, row in transp_df.iterrows() if int(row['t']) <= T_horizonte}
+
+    # --- donaciones b[g, t] ---
+    donaciones_df = lee('donaciones.csv')
+    b = {(row['tipo_sangre'], int(row['t'])): int(row['donaciones_bolsas'])
+         for _, row in donaciones_df.iterrows()
+         if int(row['t']) <= T_horizonte}
+
+    # --- demanda d[h, g, t] ---
+    demanda_df = lee('demanda.csv')
+    d = {(row['hospital_id'], row['tipo_sangre'], int(row['t'])):
+         int(row['demanda_bolsas'])
+         for _, row in demanda_df.iterrows()
+         if int(row['t']) <= T_horizonte}
+
+    # --- inventario inicial I0[n, g] ---
+    inv_df = lee('inventario_inicial.csv')
+    I0 = {}
+    for _, row in inv_df.iterrows():
+        nodo = row['nodo_id']
+        if nodo == '0' or nodo == 0:
+            n = 0
+        else:
+            n = nodo
+        I0[(n, row['tipo_sangre'])] = int(row['inventario_inicial_bolsas'])
+
+    return {
+        'H': H, 'G': G, 'N': N, 'U': U, 'T': T, 'L': L, 'C': C,
+        'd': d, 'b': b, 'I0': I0, 'K': K, 'tau': tau, 'alpha': alpha,
+        'p': p, 'eta': eta, 'M': M, 'Q': Q,
+    }
 
 
 def _datos_prueba():
@@ -575,11 +660,20 @@ def resolver(modelo, variables, datos, verbose=False):
 # =============================================================================
 
 if __name__ == '__main__':
-    # Cambiar 'estres' por 'basico' para usar el test minimo.
-    # Cuando lleguen los datos reales: cargar_datos(ruta='archivo.xlsx').
-    ESCENARIO = 'estres'
+    # ----- Configuracion de la corrida -----
+    # Opciones:
+    #   ruta='.' (o ruta a la carpeta con los CSVs) -> usa datos reales
+    #   ruta=None + escenario='basico' / 'estres'   -> datos sinteticos
+    # t_max trunca el horizonte; util para probar antes de correr T=365 completo.
+    # ----------------------------------------
+    RUTA_DATOS = '.'        # carpeta con los CSVs
+    T_MAX = None          # None = 365 dias completo; usar 30 para test rapido
 
-    print(f"\n>>> Escenario: {ESCENARIO}\n")
-    datos = cargar_datos(ruta=None, escenario=ESCENARIO)
+    print(f"\n>>> Datos reales desde '{RUTA_DATOS}', t_max = {T_MAX}\n")
+    datos = cargar_datos(ruta=RUTA_DATOS, t_max=T_MAX)
+    print(f"  H = {len(datos['H'])} hospitales | G = {len(datos['G'])} tipos")
+    print(f"  T = {len(datos['T'])} dias        | L = {datos['L']} vida util")
+    print(f"  |C| = {len(datos['C'])} pares compatibles\n")
+
     modelo, variables = construir_modelo(datos)
     resolver(modelo, variables, datos, verbose=False)
