@@ -1,0 +1,165 @@
+\section{Modelo de optimizacion}
+
+Se modela la distribucion de bolsas de sangre desde un banco central hacia un conjunto de hospitales durante un horizonte discreto de planificacion. El modelo considera inventario perecible, compatibilidad sanguinea, capacidad de almacenamiento, capacidad diaria de transporte, demanda insatisfecha y vencimiento.
+
+El tiempo de traslado $\tau_h$ se modela de forma simplificada: no introduce llegada diferida entre periodos. En cambio, se utiliza como penalizacion operacional en la funcion objetivo y como filtro de factibilidad para impedir despachos de bolsas cuya vida util no alcanza para llegar al hospital. Por lo tanto, una variable $x_{h,g,u,t}$ representa unidades despachadas y disponibles dentro del mismo periodo agregado $t$, siempre que satisfagan la condicion de factibilidad de traslado.
+
+\subsection{Conjuntos}
+
+\begin{itemize}
+    \item $H$: conjunto de hospitales.
+    \item $N = \{0\} \cup H$: conjunto de nodos, donde $0$ representa el banco central.
+    \item $G$: conjunto de tipos de sangre.
+    \item $\mathcal{T} = \{1,\dots,T\}$: conjunto de periodos.
+    \item $U = \{1,\dots,L\}$: niveles de vida util de una bolsa de sangre.
+    \item $C \subseteq G \times G$: pares compatibles entre tipo donante y tipo receptor.
+\end{itemize}
+
+\subsection{Parametros}
+
+\begin{itemize}
+    \item $d_{h,g,t}$: demanda del tipo de sangre $g$ en el hospital $h$ durante el periodo $t$.
+    \item $b_{g,t}$: donaciones del tipo de sangre $g$ que llegan al banco central en el periodo $t$.
+    \item $I^0_{n,g}$: inventario inicial del tipo de sangre $g$ en el nodo $n$, asumido con vida util maxima $L$.
+    \item $K_n$: capacidad maxima de almacenamiento del nodo $n$.
+    \item $\tau_h$: tiempo de traslado simplificado entre el banco central y el hospital $h$, usado como penalizacion y filtro de factibilidad, sin modelar llegada diferida.
+    \item $p$: penalizacion por unidad de demanda insatisfecha.
+    \item $\eta$: penalizacion por unidad de sangre vencida.
+    \item $c_{g,g'} \in \{0,1\}$: vale 1 si el tipo donante $g$ puede satisfacer demanda del tipo receptor $g'$, y 0 en caso contrario.
+    \item $\alpha_g$: penalizacion por utilizar una unidad de sangre tipo $g$.
+    \item $\beta_{g,g'}$: penalizacion por utilizar sangre donante tipo $g$ para satisfacer demanda receptora tipo $g'$. Se recomienda $\beta_{g,g}=0$ y $\beta_{g,g'}>0$ cuando $g \neq g'$.
+    \item $M$: constante suficientemente grande.
+    \item $Q_t$: cantidad maxima de unidades que el banco central puede enviar en el periodo $t$.
+\end{itemize}
+
+\subsection{Variables de decision}
+
+\begin{itemize}
+    \item $x_{h,g,u,t} \in \mathbb{Z}_{+}$: bolsas del tipo $g$, con vida util $u$, enviadas desde el banco central al hospital $h$ en el periodo $t$.
+    \item $I_{n,g,u,t} \in \mathbb{Z}_{+}$: inventario en el nodo $n$, del tipo $g$, con vida util $u$, al final del periodo $t$.
+    \item $y_{h,g,g',u,t} \in \mathbb{Z}_{+}$: bolsas del tipo donante $g$, con vida util $u$, utilizadas en el hospital $h$ durante el periodo $t$ para satisfacer demanda del tipo receptor $g'$.
+    \item $s_{h,g,t} \in \mathbb{Z}_{+}$: demanda insatisfecha del tipo $g$ en el hospital $h$ durante el periodo $t$.
+    \item $w_{n,g,t} \in \mathbb{Z}_{+}$: bolsas vencidas del tipo $g$ en el nodo $n$ durante el periodo $t$.
+\end{itemize}
+
+\subsection{Funcion objetivo}
+
+\begin{equation}
+\min
+\left\{
+\sum_{t \in \mathcal{T}}
+\sum_{h \in H}
+\sum_{g \in G}
+\sum_{g' \in G}
+\sum_{u \in U}
+\left[(L-u) + \tau_h + \alpha_g + \beta_{g,g'}\right] y_{h,g,g',u,t}
++ p \sum_{h \in H} \sum_{g \in G} \sum_{t \in \mathcal{T}} s_{h,g,t}
++ \eta \sum_{n \in N} \sum_{g \in G} \sum_{t \in \mathcal{T}} w_{n,g,t}
+\right\}.
+\end{equation}
+
+\subsection{Restricciones}
+
+\paragraph{Balance de inventario en hospitales para $u < L$}
+\begin{equation}
+I_{h,g,u,t}
+= I_{h,g,u+1,t-1} + x_{h,g,u,t}
+- \sum_{g' \in G} y_{h,g,g',u,t},
+\quad \forall h \in H,\ g \in G,\ u=1,\dots,L-1,\ t \geq 2.
+\end{equation}
+
+\paragraph{Balance de inventario en hospitales para vida util maxima}
+\begin{equation}
+I_{h,g,L,t}
+= x_{h,g,L,t} - \sum_{g' \in G} y_{h,g,g',L,t},
+\quad \forall h \in H,\ g \in G,\ t \geq 2.
+\end{equation}
+
+\paragraph{Balance de inventario en banco central para $u < L$}
+\begin{equation}
+I_{0,g,u,t}
+= I_{0,g,u+1,t-1} - \sum_{h \in H} x_{h,g,u,t},
+\quad \forall g \in G,\ u=1,\dots,L-1,\ t \geq 2.
+\end{equation}
+
+\paragraph{Donaciones nuevas en el banco central}
+\begin{equation}
+I_{0,g,L,t}
+= b_{g,t} - \sum_{h \in H} x_{h,g,L,t},
+\quad \forall g \in G,\ t \geq 2.
+\end{equation}
+
+\paragraph{Balance inicial en hospitales}
+\begin{equation}
+I_{h,g,L,1}
+= I^0_{h,g} + x_{h,g,L,1}
+- \sum_{g' \in G} y_{h,g,g',L,1},
+\quad \forall h \in H,\ g \in G.
+\end{equation}
+
+\paragraph{Balance inicial en banco central}
+\begin{equation}
+I_{0,g,L,1}
+= I^0_{0,g} + b_{g,1} - \sum_{h \in H} x_{h,g,L,1},
+\quad \forall g \in G.
+\end{equation}
+
+\paragraph{Condicion inicial para vida util menor a la maxima}
+\begin{align}
+I_{n,g,u,1} &= 0,
+&& \forall n \in N,\ g \in G,\ u \in U \setminus \{L\}, \\
+x_{h,g,u,1} &= 0,
+&& \forall h \in H,\ g \in G,\ u \in U \setminus \{L\}, \\
+y_{h,g,g',u,1} &= 0,
+&& \forall h \in H,\ g,g' \in G,\ u \in U \setminus \{L\}.
+\end{align}
+
+\paragraph{Factibilidad del traslado}
+\begin{equation}
+x_{h,g,u,t} = 0,
+\quad \forall h \in H,\ g \in G,\ u \leq \tau_h,\ t \in \mathcal{T}.
+\end{equation}
+Esta restriccion no desplaza el arribo entre periodos; solo impide enviar bolsas que vencerian antes o justo al llegar bajo la aproximacion agregada del modelo.
+
+\paragraph{Capacidad de almacenamiento}
+\begin{equation}
+\sum_{g \in G} \sum_{u \in U} I_{n,g,u,t} \leq K_n,
+\quad \forall n \in N,\ t \in \mathcal{T}.
+\end{equation}
+La capacidad se evalua sobre el inventario al final del periodo $t$.
+
+\paragraph{Vencimiento}
+\begin{align}
+w_{h,g,t} &= I_{h,g,1,t-1},
+&& \forall h \in H,\ g \in G,\ t \geq 2, \\
+w_{0,g,t} &= I_{0,g,1,t-1},
+&& \forall g \in G,\ t \geq 2, \\
+w_{n,g,1} &= 0,
+&& \forall n \in N,\ g \in G.
+\end{align}
+
+\paragraph{Compatibilidad}
+\begin{equation}
+y_{h,g,g',u,t} \leq M c_{g,g'},
+\quad \forall h \in H,\ g,g' \in G,\ u \in U,\ t \in \mathcal{T}.
+\end{equation}
+
+\paragraph{Capacidad diaria de transporte}
+\begin{equation}
+\sum_{h \in H} \sum_{g \in G} \sum_{u \in U} x_{h,g,u,t}
+\leq Q_t,
+\quad \forall t \in \mathcal{T}.
+\end{equation}
+
+\paragraph{Satisfaccion de demanda}
+\begin{equation}
+\sum_{g \in G} \sum_{u \in U} y_{h,g,g',u,t}
++ s_{h,g',t}
+= d_{h,g',t},
+\quad \forall h \in H,\ g' \in G,\ t \in \mathcal{T}.
+\end{equation}
+
+\paragraph{Naturaleza de variables}
+\begin{equation}
+x_{h,g,u,t}, I_{n,g,u,t}, y_{h,g,g',u,t}, s_{h,g,t}, w_{n,g,t} \in \mathbb{Z}_{+}.
+\end{equation}
