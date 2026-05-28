@@ -1,0 +1,7 @@
+indicador,valor,unidad
+demanda_total_anual,14718,bolsas
+donaciones_total_anual,16418,bolsas
+demanda_media_diaria,40.32,bolsas/dia
+donaciones_media_diaria,44.98,bolsas/dia
+inventario_inicial_banco,450,bolsas
+capacidad_banco,1000,bolsas

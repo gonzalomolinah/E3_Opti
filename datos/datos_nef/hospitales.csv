@@ -1,0 +1,9 @@
+hospital_id,nombre,comuna,camas_2024,camas_uci_uti_2024,demanda_media_diaria_gr,distancia_km_aprox,tiempo_traslado_min_aprox,tau_dias,capacidad_K_bolsas
+H01,Complejo Hospitalario Dr. Sotero del Rio,Puente Alto,733,201,7.67,22,70,0.0486,54
+H02,Hospital Barros Luco Trudeau,San Miguel,682,131,6.78,8,32,0.0222,48
+H03,Hospital San Juan de Dios,Santiago,542,134,5.82,6,25,0.0174,41
+H04,Hospital Clinico San Borja Arriaran,Santiago,449,127,4.82,5,22,0.0153,34
+H05,Hospital Clinico Metropolitano El Carmen,Maipu,451,88,4.55,17,55,0.0382,32
+H06,Hospital Del Salvador de Santiago,Providencia,347,70,3.48,7,28,0.0194,25
+H07,Hospital Clinico Metropolitano La Florida,La Florida,397,83,3.99,16,48,0.0333,28
+H08,Hospital Padre Alberto Hurtado,San Ramon,371,53,3.19,12,40,0.0278,25

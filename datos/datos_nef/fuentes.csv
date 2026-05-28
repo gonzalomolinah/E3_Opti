@@ -1,0 +1,10 @@
+parametro_o_dato,detalle,fuente_url_o_origen,tipo
+Vida util L,Guia para la transfusion de componentes sanguineos: concentrados de globulos rojos SAG-M almacenados 2-6 C con caducidad 42 dias,https://www.centrosangreconcepcion.cl/wp-content/uploads/2022/03/FULL-GUIAMT.pdf,Dato externo
+Distribucion ABO/Rh,"ISP Chile: fenotipo O es el mas frecuente; RhD positivo 94,4% y RhD negativo 5,5%; desagregacion completa en 8 grupos calibrada como supuesto",https://www.ispch.gob.cl/noticia/isp-realizo-el-primer-estudio-sobre-indicadores-inmunohematologicos-en-la-poblacion-chilena/,Dato externo + supuesto
+Contexto donacion sangre,"MINSAL: la sangre depende de donacion y se separa en componentes como globulos rojos, plasma y plaquetas",https://www.minsal.cl/donemos-sangre/,Dato externo
+Centro Metropolitano de Sangre,"Referencia del CMS como centro que recolecta, procesa, almacena y distribuye componentes sanguineos en la RM",https://redsalud.ssmso.cl/donemos-sangre/,Dato externo
+Compatibilidad eritrocitaria,Australian Red Cross Lifeblood: se recomienda transfundir grupo identico cuando sea posible; O Rh negativo es donante universal eritrocitario,https://www.lifeblood.com.au/patients-recipients/blood-plasma-platelets/blood-for-transfusion/matching-blood-groups,Dato externo
+Compatibilidad O-,American Red Cross: O negativo es donante universal de globulos rojos,https://www.redcrossblood.org/donate-blood/blood-types.html,Dato externo
+Hospitales y tiempos,"Listado, camas, distancias y tiempos aproximados conservan el formato/base subida por el grupo; cuando no existe fuente publica homogena, se tratan como supuestos operacionales",Archivos CSV entregados por el grupo,Supuesto/base del grupo
+Demandas y donaciones diarias,"Muestra aleatoria reproducible calibrada a 14718 bolsas de demanda anual y 16418 donaciones anuales, usando seed 1113",Supuesto del modelo definido en chat,Supuesto calibrado
+Alpha,Ponderador alpha segun ultima tabla acordada: mayor costo para donantes mas estrategicos por compatibilidad,Supuesto del modelo definido en chat,Supuesto calibrado

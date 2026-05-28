@@ -1,0 +1,6 @@
+parametro,valor
+vida_util_L,42
+penalizacion_demanda_insatisfecha_p,100
+penalizacion_vencimiento_eta,60
+M_grande,10000
+horizonte_T,30

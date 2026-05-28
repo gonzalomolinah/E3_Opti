@@ -1,0 +1,9 @@
+grupo,proporcion_poblacional,alpha_penalizacion_uso
+AB+,0.02,1
+AB-,0.01,2
+A+,0.28,3
+B+,0.08,3
+A-,0.03,4
+B-,0.02,4
+O+,0.52,6
+O-,0.04,8
