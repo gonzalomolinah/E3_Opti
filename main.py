@@ -1,10 +1,18 @@
 import csv
+import sys
+from pathlib import Path
 
 from gurobipy import GRB, Model, quicksum
 
 
+if len(sys.argv) != 2:
+    raise SystemExit("Uso: py -3.8 main.py <directorio_datos>")
+
+DIRECTORIO_DATOS = Path(sys.argv[1])
+
+
 def leer(nombre):
-    with open(nombre, newline="", encoding="utf-8-sig") as archivo:
+    with open(DIRECTORIO_DATOS / nombre, newline="", encoding="utf-8-sig") as archivo:
         return list(csv.DictReader(archivo))
 
 
@@ -163,5 +171,7 @@ modelo.optimize()
 
 if modelo.Status == GRB.OPTIMAL:
     print(f"Valor objetivo: {modelo.ObjVal:,.2f}")
+    print(f"Tiempo de resolucion: {modelo.Runtime / 60:.2f} minutos")
 else:
     print(f"Estado de Gurobi: {modelo.Status}")
+    print(f"Tiempo de resolucion: {modelo.Runtime / 60:.2f} minutos")

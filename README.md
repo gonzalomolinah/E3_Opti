@@ -26,7 +26,7 @@ binding local.
 ## Ejecucion
 
 ```powershell
-py -3.8 main.py
+py -3.8 main.py .
 ```
 
 El modelo utiliza variables continuas no negativas, tal como se formula en el

@@ -1,0 +1,7 @@
+parametro,valor,unidad,descripcion
+T,365,dias,Horizonte de planificacion anual; cada periodo representa un dia
+L,42,dias,Vida util maxima de concentrados de globulos rojos
+p,1000,ponderador/bolsa,Penalizacion por demanda insatisfecha
+eta,100,ponderador/bolsa,Penalizacion por bolsa vencida
+M,100,bolsas,Constante grande para compatibilidad; mayor que cualquier demanda diaria hospital-tipo de la instancia
+seed,1113,adimensional,Semilla usada para generar la muestra aleatoria reproducible
