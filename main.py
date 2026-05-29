@@ -132,6 +132,10 @@ def construir_modelo(datos, enteras=False):
     m.Params.Crossover = 0
     m.Params.BarConvTol = 1e-6
     m.Params.Threads = 0
+<<<<<<< HEAD
+=======
+    m.Params.TimeLimit = 1800
+>>>>>>> 0b832c798d60dbd4e0a6309c9d00ed10d039cb40
 
     # Variables (R12 implementada por construccion: y solo existe para (g,g') in C)
     vtype = GRB.INTEGER if enteras else GRB.CONTINUOUS
@@ -146,7 +150,11 @@ def construir_modelo(datos, enteras=False):
 
     # Funcion objetivo
     obj = gp.quicksum(
+<<<<<<< HEAD
         ((L - u) + tau[h] + alpha[g]) * y[h, g, gpr, u, t]
+=======
+        (u + tau[h] + alpha[g]) * y[h, g, gpr, u, t]
+>>>>>>> 0b832c798d60dbd4e0a6309c9d00ed10d039cb40
         for t in T for h in H for (g, gpr) in C for u in U
     )
     obj += p   * gp.quicksum(s[h, g, t] for h in H for g in G for t in T)
@@ -312,7 +320,11 @@ def resolver(modelo, variables, datos, verbose=False):
     tol = 1e-6
 
     obj_calidad = sum(
+<<<<<<< HEAD
         ((L - u) + tau[h] + alpha[g]) * y[h, g, gpr, u, t].X
+=======
+        (u + tau[h] + alpha[g]) * y[h, g, gpr, u, t].X
+>>>>>>> 0b832c798d60dbd4e0a6309c9d00ed10d039cb40
         for t in T for h in H for (g, gpr) in C for u in U
     )
     obj_insatisf = p   * sum(s[h, g, t].X for h in H for g in G for t in T)
@@ -379,9 +391,15 @@ def resolver(modelo, variables, datos, verbose=False):
 # =============================================================================
 
 if __name__ == '__main__':
+<<<<<<< HEAD
     # Datasets: './datos/datos_ross' | './datos/datos_guridi' | './datos/datos_nef'
     RUTA_DATOS = './datos/datos_nef'
     T_MAX = None
+=======
+    # Carpeta de datos incluida en el entregable.
+    RUTA_DATOS = './datos'
+    T_MAX = 182
+>>>>>>> 0b832c798d60dbd4e0a6309c9d00ed10d039cb40
     FACTOR_DONACIONES = 1.0
     ETA_OVERRIDE = None
 
