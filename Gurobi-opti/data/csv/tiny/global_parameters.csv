@@ -1,6 +1,0 @@
-parameter,value
-L,2
-T,2
-shortage_penalty,1000
-expiration_penalty,50
-big_m,100

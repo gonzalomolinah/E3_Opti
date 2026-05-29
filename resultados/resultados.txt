@@ -1,0 +1,60 @@
+Resultados de la instancia principal
+====================================
+
+Archivo ejecutado:
+main.py
+
+Carpeta de datos:
+datos/
+
+Configuracion:
+- Horizonte T_MAX: 182 dias
+- Vida util L: 42 dias
+- Penalizacion demanda insatisfecha p: 1000
+- Penalizacion vencimiento eta: 100
+- TimeLimit: 1800 segundos
+- Funcion objetivo: criterio FEFO con termino u
+
+Resumen Gurobi:
+- Estado: OPTIMAL
+- Valor objetivo: 212503.00
+- Best bound: 212503.00
+- Gap final: 0.0000%
+- Tiempo Gurobi: 1449.63 segundos
+- Nodos explorados: 1
+
+Balance global:
+- Demanda total: 7248 bolsas
+- Demanda satisfecha: 7248 bolsas
+- Demanda insatisfecha: 0 bolsas
+- Fill rate: 100.00%
+- Vencidas en banco: 15 bolsas
+- Vencidas en hospitales: 51 bolsas
+- Vencidas totales: 66 bolsas
+- Wastage / demanda: 0.91%
+
+Terminos del objetivo:
+- Termino calidad de uso: 205903.00
+- Termino demanda insatisfecha: 0.00
+- Termino vencimientos: 6600.00
+
+Demanda insatisfecha por tipo:
+- O+: 0 / 3936
+- O-: 0 / 206
+- A+: 0 / 2210
+- A-: 0 / 133
+- B+: 0 / 513
+- B-: 0 / 29
+- AB+: 0 / 200
+- AB-: 0 / 21
+
+Vencimientos por tipo:
+- O-: 4
+- A+: 7
+- B+: 25
+- B-: 1
+- AB+: 27
+- AB-: 2
+
+Interpretacion:
+La solucion satisface toda la demanda de la red hospitalaria y mantiene el vencimiento en un nivel bajo. El vencimiento total equivale aproximadamente a 0.91% de la demanda total, por debajo del rango de referencia usado para evaluar desperdicio operacional.

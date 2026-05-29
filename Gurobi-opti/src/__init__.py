@@ -1,2 +1,0 @@
-"""Blood distribution optimization package."""
-
