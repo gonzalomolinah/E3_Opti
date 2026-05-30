@@ -1,5 +1,5 @@
 parametro,valor,unidad,descripcion
-T,365,dias,Horizonte de planificacion anual; cada periodo representa un dia
+T,182,dias,Horizonte de planificacion anual; cada periodo representa un dia
 L,42,dias,Vida util maxima de concentrados de globulos rojos
 p,1000,ponderador/bolsa,Penalizacion por demanda insatisfecha
 eta,100,ponderador/bolsa,Penalizacion por bolsa vencida
